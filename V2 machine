@@ -1,0 +1,61 @@
+#include <Wire.h>
+#include <MPU6050_light.h>
+#include <max6675.h>
+
+// Pins
+#define POT_PIN     A0
+#define MAX_SCK_PIN 6
+#define MAX_CS_PIN  5
+#define MAX_SO_PIN  4
+
+MPU6050 mpu(Wire);
+MAX6675 thermocouple(MAX_SCK_PIN, MAX_CS_PIN, MAX_SO_PIN);
+
+// Only pressure
+float bmpPressure = 0.0;
+
+void setup() {
+  Serial.begin(115200);
+  Serial1.begin(9600);
+  Wire.begin();
+
+  mpu.begin();
+  delay(1000);
+  mpu.calcOffsets();
+
+  Serial.println("Vibration(g),Pressure(hPa),TC_Temp(C),Current(A)");
+}
+
+void loop() {
+
+  // ── Read ONLY pressure from UART ──
+  if (Serial1.available()) {
+    String line = Serial1.readStringUntil('\n');
+    line.trim();
+
+    bmpPressure = line.toFloat();   // Expect ONLY pressure value
+  }
+
+  // ── MPU6050 ──
+  mpu.update();
+  float ax = mpu.getAccX();
+  float ay = mpu.getAccY();
+  float az = mpu.getAccZ();
+  
+  float vibration = abs(ax) + abs(ay) + abs(az - 1.0);
+
+  // ── MAX6675 ──
+  float tcTemp = thermocouple.readCelsius();
+
+  // ── Potentiometer ──
+  int potRaw = analogRead(POT_PIN);
+  float current = (potRaw / 1023.0) * 9.0 + 1.0;
+
+  // ── Output ──
+  Serial.print(vibration, 3); Serial.print(",");
+  Serial.print(bmpPressure, 2); Serial.print(",");
+  Serial.print(tcTemp, 2); Serial.print(",");
+  Serial.println(current, 2);
+
+  delay(250);
+}
